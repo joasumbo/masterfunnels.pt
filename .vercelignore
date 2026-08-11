@@ -1,0 +1,5 @@
+.env
+.env.*
+apps/web/.env
+apps/web/.env.*
+node_modules

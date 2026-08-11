@@ -24,7 +24,6 @@ npm install
 cp .env.example .env
 # DATABASE_URL, GEMINI_API_KEY, JWT_SEGREDO, ADMIN_EMAIL, ADMIN_PASSWORD
 cp .env apps/api/.env
-cp apps/web/.env.example apps/web/.env
 
 npm run db:push --workspace apps/api
 npm run semear --workspace apps/api
