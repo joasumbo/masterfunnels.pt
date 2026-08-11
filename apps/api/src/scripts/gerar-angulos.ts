@@ -50,7 +50,9 @@ async function correr() {
   }
 }
 
-correr().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+correr()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
