@@ -11,7 +11,8 @@
     "taxonomia": "tsx src/scripts/taxonomia.ts",
     "classificar": "tsx src/scripts/classificar.ts",
     "angulos": "tsx src/scripts/gerar-angulos.ts",
-    "semear": "tsx src/scripts/semear.ts"
+    "semear": "tsx src/scripts/semear.ts",
+    "pendentes": "tsx src/scripts/pendentes.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
