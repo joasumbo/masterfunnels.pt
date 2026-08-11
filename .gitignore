@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+.vercel/
+
+# Material de trabalho, fora do repositorio
+marca/
+.claude/
+scripts/test-*.mjs
