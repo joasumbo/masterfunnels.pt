@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { construirApp } from '../apps/api/src/app.js'
+import { construirApp } from './app.js'
 
 type App = Awaited<ReturnType<typeof construirApp>>
 

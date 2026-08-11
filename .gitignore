@@ -16,3 +16,5 @@ scripts/test-*.mjs
 
 .vercel
 .env*
+
+api/index.js
