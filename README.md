@@ -1,137 +1,137 @@
-# Master Funnels — pesquisa de audiência
+# Pesquisa de audiência — Master Funnels
 
-Ferramenta que pega nas respostas em texto livre de uma pesquisa pré-lançamento e devolve, sem ninguém ler tudo à mão, os grandes temas, o estado de consciência das pessoas, as objeções que se repetem, e ângulos de anúncio fundamentados em frases reais.
+Isto pega nas respostas de uma pesquisa pré-lançamento e devolve, sem ninguém ter de ler as 112 à mão, os temas que se repetem, o estado de consciência de quem respondeu, as objeções que travam a compra, e ângulos de anúncio escritos a partir de frases reais.
 
-São quatro peças: a landing que capta, a classificação, o painel que a equipa lê, e um agente que transforma um cluster em cinco ângulos.
+São quatro peças: a landing que recolhe, a ingestão que classifica, o painel onde a equipa lê, e um agente que pega num cluster e devolve cinco ângulos.
 
-## Endereços
+## Onde está
 
 | | |
 |---|---|
-| Landing | *a preencher no envio* |
-| Painel | *a preencher no envio* |
+| Landing | https://masterfunnels.vercel.app |
+| Painel | https://masterfunnels.vercel.app/painel |
+| Repositório | https://github.com/joasumbo/masterfunnels.pt |
 | Utilizador de teste | `avaliacao@masterfunnels.pt` |
-| Palavra-passe | *enviada em separado* |
+| Palavra-passe | enviada à parte |
 
-## Como correr
+## Correr localmente
 
-Precisas de Node 22, uma base de dados Postgres na Neon e uma chave da API do Gemini.
+Node 22, uma base Postgres na Neon e uma chave do Gemini.
 
 ```bash
 npm install
 
 cp .env.example .env
-# preenche DATABASE_URL, GEMINI_API_KEY, JWT_SEGREDO e ADMIN_PASSWORD
-
+# DATABASE_URL, GEMINI_API_KEY, JWT_SEGREDO, ADMIN_EMAIL, ADMIN_PASSWORD
 cp .env apps/api/.env
 cp apps/web/.env.example apps/web/.env
 
-npm run db:push --workspace apps/api      # cria as tabelas
-npm run semear --workspace apps/api       # cria o utilizador do painel
-
-npm run importar --workspace apps/api     # 112 respostas do CSV para a base de dados
-npm run taxonomia --workspace apps/api    # descobre os clusters de dor
-npm run classificar --workspace apps/api  # classifica as 112 respostas
-npm run angulos --workspace apps/api      # corre o agente sobre o cluster com mais peso
+npm run db:push --workspace apps/api
+npm run semear --workspace apps/api
 ```
 
-Depois, em dois terminais:
+A partir daqui a base está vazia. Para a encher pela ordem certa:
 
 ```bash
-npm run dev --workspace apps/api    # API em http://localhost:3001
-npm run dev --workspace apps/web    # landing em http://localhost:5173, painel em /painel
+npm run importar --workspace apps/api     # as 112 linhas do CSV
+npm run taxonomia --workspace apps/api    # descobre os clusters
+npm run classificar --workspace apps/api  # classifica tudo contra eles
+npm run angulos --workspace apps/api      # corre o agente no cluster maior
 ```
 
-## Como está montado
+Dois terminais e está a andar:
+
+```bash
+npm run dev --workspace apps/api    # http://localhost:3001
+npm run dev --workspace apps/web    # http://localhost:5173
+```
+
+## Como está dividido
 
 ```
-apps/web        React, Vite, TypeScript, Tailwind. Landing pública e painel.
-apps/api        Node, Fastify, TypeScript. API, scripts de ingestão e o agente.
-packages/shared Schemas Zod e tipos usados pelas duas pontas.
+apps/web         React, Vite, Tailwind. Landing e painel.
+apps/api         Fastify, Drizzle, os scripts de ingestão e o agente.
+packages/shared  Zod e tipos, partilhados pelas duas pontas.
 ```
 
-O `packages/shared` existe por causa de uma frase do enunciado: *"os campos têm de bater certo com o CSV, porque as respostas novas caem na mesma tabela das importadas"*. Os seis escalões de rendimento, as três respostas de `ja_investiu` e as seis origens estão declarados uma vez só, e são o mesmo objeto que valida o formulário no browser, valida o corpo do pedido na API e tipa o import do CSV. Se alguém mexer num valor, o TypeScript parte nos três sítios ao mesmo tempo. Na importação das 112 linhas não houve uma única violação dos enums, o que confirma que o contrato corresponde ao ficheiro original.
+O `packages/shared` nasceu de uma frase do enunciado: os campos da landing têm de bater certo com o CSV, porque as respostas novas caem na mesma tabela das importadas. Os seis escalões de rendimento, as três respostas de `ja_investiu` e as seis origens estão escritos uma vez só. O mesmo objeto valida o formulário no browser, valida o corpo do pedido na API e tipa o importador. Mexer num valor parte a compilação nos três sítios ao mesmo tempo, que é exactamente o que eu quero que aconteça.
 
-Backend separado, e não funções serverless, por causa do agente: o ciclo de ferramentas faz seis a dez chamadas encadeadas ao modelo e ultrapassaria o limite de execução de uma função.
+Escolhi um servidor a sério em vez de funções serverless por causa do agente. O ciclo de ferramentas faz seis a dez chamadas encadeadas ao modelo e estoira o tempo de execução de uma função.
 
-## Decisões, e porquê
+## O que encontrei no ficheiro antes de escrever código
 
-### Os campos de perfil contradizem o texto — e isso mudou a classificação
+Abri o CSV e li-o antes de decidir seja o que for. Ainda bem.
 
-Ao ler o CSV antes de escrever código encontrei 16 contradições diretas entre os campos demográficos e o que a pessoa escreve. O texto *"Sou reformado, tenho 68 anos, quero rendimento e não crescimento"* aparece associado às idades 26, 41, 35, 24 e 41. A resposta R0001 tem `idade=22` e diz *"tenho 24 anos"*. Os demográficos foram atribuídos de forma aleatória a um conjunto de textos reutilizados.
+Há 16 sítios onde os campos de perfil contradizem o que a pessoa escreveu. O texto *"Sou reformado, tenho 68 anos, quero rendimento e não crescimento"* aparece colado às idades 26, 41, 35, 24 e 41. A R0001 diz `idade=22` e no texto escreve "tenho 24 anos". Não é ruído aleatório de gente a mentir num formulário: são textos reaproveitados com demográficos atirados por cima.
 
-Duas consequências:
+Isto mudou duas decisões.
 
-**A classificação usa apenas os três campos de texto.** O prompt proíbe explicitamente o uso de idade, rendimento e origem, e explica porquê. Se deixasse o modelo ver os demográficos, o nível de consciência ficava contaminado por ruído.
+A primeira é que a classificação lê só os três campos de texto. O prompt proíbe explicitamente olhar para idade, rendimento ou origem, e diz porquê. Se deixasse o modelo ver aquilo, o nível de consciência vinha contaminado.
 
-**O cruzamento cluster contra rendimento é ruído, e o painel di-lo.** O enunciado pede pelo menos um cruzamento útil e dá o rendimento como exemplo, por isso ele está lá. Mas o cruzamento com sinal real é cluster contra nível de consciência, porque ambos derivam do texto — e o painel tem uma nota discreta a dizê-lo. Preferi mostrar os dois e ser honesto sobre a diferença do que apresentar uma matriz bonita que não significa nada.
+A segunda é o cruzamento por rendimento. O enunciado pede pelo menos um cruzamento útil e dá o rendimento como exemplo, por isso ele está lá. Só que não significa nada, e o painel diz isso por baixo da matriz. O cruzamento que presta é cluster contra nível de consciência, porque as duas dimensões saem do texto. Preferi mostrar os dois e ser franco sobre a diferença do que servir uma matriz bonita e vazia.
 
-### Os clusters saem dos dados, não da minha cabeça
+## De onde vêm os clusters
 
-O enunciado diz que os clusters devem surgir da abordagem ao problema. Fiz em duas passagens.
+O enunciado diz que devem emergir da abordagem ao problema, não de uma lista que eu escrevi. Fiz em duas passagens.
 
-Primeiro, uma passagem de descoberta: das 112 respostas há apenas 33 dificuldades distintas, por isso mando as 33 com a respetiva frequência ao modelo e peço-lhe a taxonomia canónica, com o critério explícito de que duas respostas ficam no mesmo cluster se o mesmo anúncio as convencesse. Saíram dez clusters, gravados na tabela `clusters`.
+Na primeira, descoberta. Das 112 respostas há só 33 dificuldades distintas, portanto mando as 33 com a frequência de cada uma e peço a taxonomia canónica. O critério que dei ao modelo foi este: duas respostas ficam no mesmo cluster se o mesmo anúncio as convencesse. Saíram dez, gravados na tabela `clusters`.
 
-Depois, a classificação corre contra essa taxonomia fixa, com os slugs como enumeração fechada no esquema de saída. O modelo não pode inventar um cluster novo a meio das 112, o que mantém as contagens do painel estáveis.
+Na segunda, classificação contra essa taxonomia já fixa, com os slugs como enumeração fechada no esquema de saída. O modelo não pode inventar um cluster a meio do lote, e as contagens do painel ficam estáveis.
 
-Podia ter feito clustering por embeddings. Não fiz porque com 33 textos distintos o agrupamento semântico dá grupos que não correspondem a decisões de escrita — junta "tenho medo de perder dinheiro" com "tenho dinheiro parado" por ambos falarem de dinheiro, quando são dores opostas que exigem anúncios opostos.
+Pensei em fazer clustering por embeddings e não fiz. Com 33 textos distintos, o agrupamento semântico dá grupos que não correspondem a decisões de escrita: junta "tenho medo de perder dinheiro" com "tenho dinheiro parado" porque as duas frases falam de dinheiro, quando são dores opostas que pedem anúncios opostos.
 
-### As citações são verificadas contra o texto original
+## As citações
 
-O enunciado pede que a citação seja um excerto literal. Pedir ao modelo não chega, por isso depois de cada classificação o código confirma que a citação existe mesmo, letra a letra, num dos três campos daquela resposta, com acentos e maiúsculas normalizados. Se não existir, a citação é descartada e a confiança desce para 45.
+O enunciado quer um excerto literal, utilizável num anúncio. Pedir ao modelo que não invente não chega, portanto depois de cada classificação o código vai confirmar que a frase existe mesmo, letra a letra, num dos três campos daquela resposta, com acentos e maiúsculas normalizados. Se não existir, a citação é deitada fora e a confiança cai para 45.
 
-Nas 112 respostas não houve uma única citação rejeitada. A verificação fica na mesma, porque é o que garante que continua verdade quando entrarem respostas novas.
+Nas 112 não foi rejeitada nenhuma. A verificação fica na mesma, porque é ela que garante que isto continua verdade quando entrarem respostas novas pela landing.
 
-### Confiança e revisão humana
+A confiança é a que o modelo reporta, com dois tectos por cima: citação não literal limita a 45, resposta sem sinal nos campos opcionais limita a 55. Ficou em 90 de média, com uma única resposta abaixo de 60. O painel ordena cada cluster por confiança ascendente, para o que provavelmente correu mal ser a primeira coisa que se vê.
 
-A confiança é o que o modelo reporta, corrigida por duas regras: citação não literal limita a 45; resposta sem sinal nos campos `ja_tentou` e `o_que_faria_comprar` limita a 55. O painel ordena as respostas de um cluster por confiança ascendente, portanto o que o modelo provavelmente errou aparece primeiro. Confiança média de 90, uma resposta abaixo de 60.
+## A landing
 
-### Sujidade do ficheiro
+Uma pergunta por ecrã, com transição de entrada e saída. É mais lento de construir do que um formulário empilhado, mas responde-se mais e escreve-se mais em cada campo, e o que este projecto precisa é de texto livre com substância.
 
-Sete respostas com `ja_tentou` em branco, três com "nada", cinco com `o_que_faria_comprar` a "-". Esses valores entram como nulos. Por isso, na landing, só a primeira pergunta é obrigatória: exigir as três criaria uma tabela onde as linhas novas seguem regras diferentes das importadas.
+Só a primeira pergunta é obrigatória. Isto não é preguiça: no CSV há sete respostas com `ja_tentou` em branco, três com "nada" e cinco com `o_que_faria_comprar` a "-". Se exigisse as três, ficava com uma tabela onde as linhas novas seguem regras diferentes das importadas.
 
-### Proteção contra submissões automáticas
-
-Campo escondido que um humano nunca preenche e um robô sim, mais o tempo entre abrir e submeter o formulário, mais limite por IP na API. Sem serviços externos, porque o enunciado pede proteção mínima e não quis acrescentar uma dependência de terceiros a uma coisa que se resolve em vinte linhas.
+Contra robôs há um campo escondido que nenhum humano preenche, o tempo entre abrir e submeter, e um limite por IP na API. Sem serviços externos. O enunciado pede protecção mínima e não me apetecia meter uma dependência de terceiros numa coisa que se resolve em vinte linhas.
 
 ## O painel
 
-Barra lateral escura com a marca, área de trabalho clara. A landing é preta e dourada porque é a cara da marca; o painel é uma ferramenta de trabalho e lê-se melhor em claro.
+Barra lateral escura com a marca, área de trabalho clara. A landing é preta e dourada porque é a cara da Master Funnels; o painel é uma ferramenta de trabalho e lê-se melhor em claro.
 
-**Visão geral.** Quatro indicadores no topo, o peso dos clusters num donut clicável, o estado de consciência e as dez objeções em gráficos, e um cartão que resume o que o conjunto está a dizer. Em baixo, os dois cruzamentos.
+Na visão geral estão os indicadores, o peso dos clusters num donut clicável, a consciência e as objeções em gráfico, e os dois cruzamentos.
 
-**Respostas.** A tabela das 112, com a data e hora de cada uma, procura livre no texto, filtros por cluster, consciência e origem, ordenação e um atalho para as respostas duvidosas. Clicar abre uma gaveta com a resposta inteira, a citação destacada, o perfil e a origem — CSV importado ou landing.
+A página de respostas tem as 112 em tabela, com a data e hora de cada uma, procura no texto, filtros por cluster, consciência e origem, e um atalho para as duvidosas. Clicar abre uma gaveta com a resposta inteira, a citação destacada, o perfil, e se veio do CSV ou da landing.
 
-**Clusters.** Os dez com a descrição e o peso. Abrir um mostra as respostas ordenadas da menor confiança para a maior, cada uma com a citação em destaque e um botão para corrigir a classificação ali mesmo. A correção grava `revisto_por_humano` e aparece daí em diante marcada como revista.
+Abrir um cluster dá as respostas com a citação em destaque e um botão para corrigir a classificação sem sair dali. A correcção marca `revisto_por_humano` e passa a aparecer assinalada.
 
-**Agente.** O histórico de execuções com estado, iterações, ângulos, duração e tokens.
+Exporta-se um cluster só com as citações, ou o conjunto todo com as colunas originais do CSV mais as oito da classificação. Este segundo leva marca de ordem de bytes e a dica de separador, senão o Excel em português despeja tudo na coluna A.
 
-**Exportação.** Um cluster exporta as suas citações; o painel inteiro exporta as 112 respostas com as colunas originais do CSV mais as oito da classificação, prontas a abrir no Excel.
-
-A autenticação é JWT assinado com `jose` num cookie httpOnly, palavra-passe com bcrypt. Simples, mas nenhum endpoint do painel responde sem ela.
+A autenticação é um JWT assinado com `jose` num cookie httpOnly e a palavra-passe em bcrypt. Não tem recuperação de conta nem gestão de utilizadores, mas nenhum endpoint do painel responde sem ela.
 
 ## O agente
 
-O enunciado é explícito: *"não é apenas um prompt. Esperamos um agente capaz de decidir autonomamente que informação consultar e quando terminar."* Por isso o agente não recebe os dados do cluster no prompt. Recebe **ferramentas** e decide sozinho o que consultar.
+O enunciado é claro nisto: *"não é apenas um prompt. Esperamos um agente capaz de decidir autonomamente que informação consultar e quando terminar."*
 
-**As ferramentas que tem:**
+Por isso não lhe dou os dados do cluster no prompt. Dou-lhe ferramentas e ele que se governe.
 
 | Ferramenta | O que devolve |
 |---|---|
-| `panorama_do_cluster` | Tamanho, distribuição por nível de consciência, objeções por peso, e o cluster face aos outros |
-| `ler_respostas` | Respostas na íntegra, com paginação, ordenadas por confiança |
-| `procurar_citacoes` | Excertos que contêm um termo, para caçar frases sobre um medo ou um número concreto |
-| `respostas_por_objecao` | Filtra o cluster por objeção, para fundamentar o ângulo que a derruba |
-| `verificar_citacao` | Confirma que um excerto existe letra a letra e devolve o `resposta_id` de origem |
+| `panorama_do_cluster` | Tamanho, distribuição por consciência, objeções por peso, o cluster face aos outros |
+| `ler_respostas` | Respostas na íntegra, paginadas, por confiança |
+| `procurar_citacoes` | Excertos que contêm um termo, para caçar uma frase sobre um medo ou um número |
+| `respostas_por_objecao` | Filtra o cluster por objeção |
+| `verificar_citacao` | Confirma que um excerto existe letra a letra e devolve o `resposta_id` |
 | `entregar_angulos` | Entrega e termina |
 
-**Critério de paragem.** O agente só pode chamar `entregar_angulos` quando tiver cinco ângulos, cinco objeções distintas e todas as citações confirmadas. Mas o critério não fica ao critério dele: quando entrega, o servidor valida antes de aceitar — confere que são exatamente cinco, que as objeções não se repetem, e que cada citação existe mesmo no texto original. Se alguma falhar, a entrega é **rejeitada** e o motivo volta para o agente como resultado da ferramenta, para ele ir buscar outra citação em vez de insistir. Há um limite de dez iterações como rede de segurança.
+Sobre quando parar, a regra é ter cinco ângulos, cinco objeções distintas e todas as citações confirmadas. Mas isso não fica na palavra dele. Quando entrega, o servidor valida antes de aceitar: conta os ângulos, verifica que as objeções não se repetem, e vai ver se cada citação existe mesmo no texto original. Se falhar alguma coisa, a entrega é recusada e o motivo volta para ele como resultado da ferramenta, para ir buscar outra citação em vez de insistir na mesma. Dez iterações de tecto, por segurança.
 
-Isto é o que separa o agente de um prompt: ele pode falhar a entrega e tem de recuperar sozinho.
+É isto que separa um agente de um prompt bem escrito: pode falhar a entrega e tem de se safar sozinho.
 
-**O que ficou gravado.** Cada execução guarda na tabela `execucoes_agente` a sequência completa de ferramentas consultadas, com argumentos e duração, o critério de paragem escrito pelo próprio agente, as iterações e os tokens. O painel mostra esse rasto ao lado dos ângulos.
+Cada execução deixa gravado na tabela `execucoes_agente` a sequência de ferramentas com argumentos e duração, o critério de paragem escrito por ele, as iterações e os tokens. O painel mostra esse rasto ao lado dos ângulos, para se poder discordar do resultado com o processo à frente.
 
-**A execução que está entregue** — cluster *Não Sei Por Onde Começar*, o de maior peso com 22 das 112 respostas:
+A execução que está entregue foi no cluster *Não Sei Por Onde Começar*, o maior, com 22 das 112 respostas:
 
 ```
 1. panorama_do_cluster    22 respostas, 16 objecoes distintas
@@ -147,42 +147,36 @@ Isto é o que separa o agente de um prompt: ele pode falhar a entrega e tem de r
 
 Nove iterações, 33,7 segundos, 23.988 tokens de entrada e 944 de saída.
 
-Vale a pena reparar no passo 6. Depois de ler dez respostas, o agente tinha citações para quatro ângulos mas faltava-lhe material para a objeção do tempo — então foi procurar pelo termo "tempo" em vez de ler mais respostas às cegas. É esse tipo de decisão que o enunciado está a pedir.
-
-Nas palavras dele, sobre porque parou:
-
-> *"Consultei o panorama_do_cluster para identificar as objeções mais frequentes e o tamanho do cluster. Li as primeiras 10 respostas para captar a voz dos utilizadores. Procurei citações específicas para a objeção 'Falta de tempo'. Todas as citações usadas nos cinco ângulos foram verificadas individualmente, garantindo a sua autenticidade e origem no cluster."*
+O passo 6 é o que me interessa. Ele tinha citações para quatro ângulos e faltava-lhe material para a objeção do tempo. Em vez de ler mais dez respostas à sorte, foi procurar pelo termo. Isso é uma decisão, não um passo de guião.
 
 ## O que ficou de fora
 
-Coisas que decidi não fazer, e porquê.
+Só gerei ângulos para um cluster. O enunciado pede pelo menos um e o botão está no painel para gerar os outros à frente de quem avaliar. Correr os dez de enfiada gastava quota do plano gratuito para mostrar exactamente a mesma coisa dez vezes.
 
-**Gerar ângulos para os dez clusters.** O enunciado pede pelo menos um cluster com cinco ângulos. Está feito para *Não Sei Por Onde Começar*, o de maior peso, e o botão está lá para gerar os outros à frente de quem avaliar. Correr os dez de uma vez gastava quota do tier gratuito sem mostrar nada de novo.
+As objeções ficaram em texto livre normalizado. Deram 51 distintas, e algumas são a mesma coisa dita de duas maneiras. O tratamento em duas passagens que dei aos clusters resolvia isto e não tive tempo.
 
-**Taxonomia fixa para as objeções.** Ficaram em texto livre normalizado. Deu 51 objeções distintas, algumas das quais são a mesma coisa dita de duas maneiras.
+Não há testes automatizados. Verifiquei ponta a ponta com pedidos reais à API e os números deste ficheiro saíram de lá, mas se isto continuasse a primeira coisa que eu escrevia era um teste ao verificador de citações literais, que é a peça de que mais depende a credibilidade do resto.
 
-**Testes automatizados.** Não há suite. Verifiquei ponta a ponta com pedidos reais à API e deixei os números no README, mas num projeto que continuasse a primeira coisa que escrevia era um teste ao verificador de citações literais.
+Criar ou renomear clusters faz-se por script, não pelo painel. Mudar uma resposta de cluster faz-se no painel.
 
-**Editar a taxonomia pelo painel.** Os clusters criam-se por script. Corrigir a que cluster uma resposta pertence faz-se no painel; criar ou renomear um cluster não.
-
-**Histórico de correções.** Guardo que uma classificação foi revista e quando, não o que lá estava antes.
+Guardo que uma classificação foi revista e quando, não o que lá estava antes.
 
 ## O que faria a seguir
 
-**Busca vetorial quando o corpus crescer.** Com 112 respostas o corpus inteiro cabe no contexto e o agente lê o que precisa diretamente — não há nada para recuperar. Além disso, as citações têm de ser literais, e a busca por similaridade devolve vizinhos semânticos, não texto igual; para garantir que a frase existe letra a letra preciso de correspondência exata, que é uma operação de base de dados. Com milhares de respostas acumuladas em várias campanhas, o agente vai querer citações comparáveis de lançamentos anteriores e aí o corpus deixa de caber. A Neon já tem `pgvector` disponível, portanto o caminho está aberto.
+Busca vectorial, mas só quando fizer sentido. Com 112 respostas o corpus inteiro cabe no contexto e o agente vai buscar o que precisa directamente, não há nada para recuperar. E as citações têm de ser literais: a busca por similaridade devolve vizinhos semânticos, não texto igual, portanto para garantir que a frase existe letra a letra continuo a precisar de correspondência exacta, que é uma operação de base de dados. Isto muda com milhares de respostas acumuladas de várias campanhas, quando o agente quiser citações comparáveis de lançamentos anteriores. A Neon já traz `pgvector`, o caminho está aberto.
 
-**Avaliação da classificação.** Neste momento a única defesa contra um erro do modelo é a confiança e a revisão humana. Com um conjunto de cem respostas classificadas à mão dava para medir a concordância e detetar regressões ao mudar de modelo ou de prompt.
+Avaliação da classificação. Neste momento a única defesa contra um erro do modelo é a confiança e a revisão humana. Com cem respostas classificadas à mão dava para medir a concordância e apanhar regressões ao mudar de modelo ou de prompt.
 
-**Separar as objeções em taxonomia fixa.** As objeções são hoje texto livre normalizado para minúsculas. Funcionam, mas duas formulações da mesma objeção contam como duas. O mesmo tratamento em duas passagens que dei aos clusters resolvia isto.
+Histórico das correcções, para se poder ver o que a equipa discordou e usar isso para afinar o prompt.
 
-## Serviços usados e custos
+## Serviços e custos
 
 | Serviço | Para quê | Custo |
 |---|---|---|
-| Google Gemini | Taxonomia, classificação das 112 respostas e agente | Tier gratuito |
-| Neon | Base de dados Postgres | Tier gratuito |
-| Vercel | Alojamento da landing e do painel | Tier gratuito |
+| Google Gemini | Taxonomia, classificação e agente | Plano gratuito |
+| Neon | Postgres | Plano gratuito |
+| Vercel | Landing e painel | Plano gratuito |
 
-Sem custos a reembolsar.
+Nada a reembolsar.
 
-Nota sobre a escolha do modelo: comecei com a OpenAI, mas a conta não tinha saldo, e os modelos Pro do Gemini têm quota zero no tier gratuito. Todo o trabalho corre em `gemini-2.5-flash`. Com orçamento, a classificação ficava igual e o agente beneficiava de um modelo de raciocínio mais forte.
+Uma nota sobre o modelo: comecei na OpenAI e a conta não tinha saldo. Passei para o Gemini e os modelos Pro têm quota zero no plano gratuito. Tudo isto corre em `gemini-2.5-flash`. Com orçamento, a classificação ficava na mesma e o agente é que ganhava com um modelo de raciocínio mais forte.
