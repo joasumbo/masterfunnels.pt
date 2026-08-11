@@ -12,6 +12,6 @@
     "build": "npm run build:api && npm run build --workspace apps/web"
   },
   "devDependencies": {
-    "esbuild": "^0.28.7"
+    "esbuild": "^0.28.2"
   }
 }
