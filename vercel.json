@@ -6,9 +6,6 @@
   "functions": {
     "api/index.mjs": {
       "maxDuration": 60
-    },
-    "api/ping.mjs": {
-      "maxDuration": 10
     }
   },
   "rewrites": [
