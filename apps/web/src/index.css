@@ -1,8 +1,5 @@
 @import 'tailwindcss';
 
-/* Tokens da marca Master Funnels, extraídos de masterfunnels.pt.
-   Declarados em @theme para o Tailwind gerar as utilidades correspondentes
-   (bg-fundo, text-ouro, font-serif, etc.). */
 @theme {
   --color-ouro: #d4a843;
   --color-ouro-claro: #e8c36a;
@@ -23,6 +20,19 @@
   --color-sucesso: #22c55e;
   --color-erro: #ef4444;
 
+  --color-papel: #f4f3ef;
+  --color-papel-fundo: #ebe9e3;
+  --color-cartao: #ffffff;
+  --color-linha: #e4e1d9;
+  --color-linha-forte: #cfcac0;
+  --color-tinta: #16151a;
+  --color-tinta-media: #55525e;
+  --color-tinta-fraca: #86828f;
+  --color-navio: #0b0b10;
+  --color-navio-claro: #17171f;
+  --color-jade: #0f7a5a;
+  --color-ferrugem: #b4522a;
+
   --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -38,4 +48,199 @@ body {
   color: var(--color-texto);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes entrar-frente {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 40px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes entrar-tras {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -40px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sair-frente {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -34px, 0);
+  }
+}
+
+@keyframes sair-tras {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 34px, 0);
+  }
+}
+
+@keyframes desvanecer {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+.entra-frente {
+  animation: entrar-frente 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.entra-tras {
+  animation: entrar-tras 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sai-frente {
+  animation: sair-frente 0.24s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.sai-tras {
+  animation: sair-tras 0.24s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.sai-tudo {
+  animation: desvanecer 0.3s ease both;
+}
+
+.escalonar > * {
+  animation: surgir 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.escalonar > *:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.escalonar > *:nth-child(2) {
+  animation-delay: 0.14s;
+}
+.escalonar > *:nth-child(3) {
+  animation-delay: 0.23s;
+}
+.escalonar > *:nth-child(4) {
+  animation-delay: 0.32s;
+}
+.escalonar > *:nth-child(5) {
+  animation-delay: 0.41s;
+}
+.escalonar > *:nth-child(6) {
+  animation-delay: 0.5s;
+}
+
+@keyframes aviso-cair {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -18px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes atravessar {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(300%, 0, 0);
+  }
+}
+
+@keyframes pulsar {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes entrar-lado {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.entra-lado {
+  animation: entrar-lado 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.aviso-entra {
+  animation: aviso-cair 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.risca {
+  animation: atravessar 1.15s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.brilho {
+  animation: pulsar 1.8s ease-in-out infinite;
+}
+
+body.sem-scroll {
+  overflow-y: auto;
+}
+
+@media (min-width: 640px) {
+  body.sem-scroll {
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entra-frente,
+  .entra-tras,
+  .sai-frente,
+  .sai-tras,
+  .sai-tudo,
+  .aviso-entra,
+  .escalonar > * {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms;
+  }
+
+  .risca,
+  .brilho {
+    animation: none;
+  }
 }

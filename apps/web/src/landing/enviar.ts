@@ -1,9 +1,10 @@
 import type { Origem, RespostaPublica } from '@mf/shared'
+import { BASE_API } from '../base'
 
 export type PayloadResposta = RespostaPublica & { origem: Origem }
 
 export async function enviarResposta(payload: PayloadResposta): Promise<void> {
-  const resposta = await fetch(`${import.meta.env.VITE_API_URL}/api/respostas`, {
+  const resposta = await fetch(`${BASE_API}/api/respostas`, {
     method: 'POST',
     credentials: 'omit',
     headers: { 'Content-Type': 'application/json' },

@@ -10,3 +10,6 @@ dist/
 marca/
 .claude/
 scripts/test-*.mjs
+
+.claude/
+.verificacao/

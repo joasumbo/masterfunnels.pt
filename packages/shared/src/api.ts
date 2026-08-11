@@ -64,6 +64,41 @@ export type DetalheCluster = {
   respostas: RespostaDTO[]
 }
 
+export type ListaRespostas = {
+  total: number
+  pagina: number
+  porPagina: number
+  respostas: RespostaDTO[]
+}
+
+export type FiltrosRespostas = {
+  q?: string
+  cluster?: string
+  nivel?: string
+  origem?: string
+  fonte?: string
+  revisto?: 'sim' | 'nao'
+  duvidosas?: 'sim'
+  ordem?: 'recentes' | 'antigas' | 'confianca' | 'identificador'
+  pagina?: number
+  porPagina?: number
+}
+
+export type ResumoExecucao = {
+  id: number
+  clusterSlug: string
+  clusterNome: string
+  estado: 'a_correr' | 'concluida' | 'falhou'
+  modelo: string
+  iteracoes: number
+  criterioParagem: string | null
+  tokensEntrada: number
+  tokensSaida: number
+  criadoEm: string
+  concluidoEm: string | null
+  totalAngulos: number
+}
+
 export type PassoTrace = {
   iteracao: number
   ferramenta: string
@@ -109,5 +144,8 @@ export const ENDPOINTS = {
   angulosDoCluster: 'GET /api/clusters/:slug/angulos',
   gerarAngulos: 'POST /api/clusters/:slug/angulos',
   execucao: 'GET /api/execucoes/:id',
+  execucoes: 'GET /api/execucoes',
+  respostas: 'GET /api/respostas',
+  exportarTudo: 'GET /api/exportacao/respostas.csv',
   submeterResposta: 'POST /api/respostas',
 } as const

@@ -94,6 +94,22 @@ Sete respostas com `ja_tentou` em branco, três com "nada", cinco com `o_que_far
 
 Campo escondido que um humano nunca preenche e um robô sim, mais o tempo entre abrir e submeter o formulário, mais limite por IP na API. Sem serviços externos, porque o enunciado pede proteção mínima e não quis acrescentar uma dependência de terceiros a uma coisa que se resolve em vinte linhas.
 
+## O painel
+
+Barra lateral escura com a marca, área de trabalho clara. A landing é preta e dourada porque é a cara da marca; o painel é uma ferramenta de trabalho e lê-se melhor em claro.
+
+**Visão geral.** Quatro indicadores no topo, o peso dos clusters num donut clicável, o estado de consciência e as dez objeções em gráficos, e um cartão que resume o que o conjunto está a dizer. Em baixo, os dois cruzamentos.
+
+**Respostas.** A tabela das 112, com a data e hora de cada uma, procura livre no texto, filtros por cluster, consciência e origem, ordenação e um atalho para as respostas duvidosas. Clicar abre uma gaveta com a resposta inteira, a citação destacada, o perfil e a origem — CSV importado ou landing.
+
+**Clusters.** Os dez com a descrição e o peso. Abrir um mostra as respostas ordenadas da menor confiança para a maior, cada uma com a citação em destaque e um botão para corrigir a classificação ali mesmo. A correção grava `revisto_por_humano` e aparece daí em diante marcada como revista.
+
+**Agente.** O histórico de execuções com estado, iterações, ângulos, duração e tokens.
+
+**Exportação.** Um cluster exporta as suas citações; o painel inteiro exporta as 112 respostas com as colunas originais do CSV mais as oito da classificação, prontas a abrir no Excel.
+
+A autenticação é JWT assinado com `jose` num cookie httpOnly, palavra-passe com bcrypt. Simples, mas nenhum endpoint do painel responde sem ela.
+
 ## O agente
 
 O enunciado é explícito: *"não é apenas um prompt. Esperamos um agente capaz de decidir autonomamente que informação consultar e quando terminar."* Por isso o agente não recebe os dados do cluster no prompt. Recebe **ferramentas** e decide sozinho o que consultar.
@@ -139,7 +155,17 @@ Nas palavras dele, sobre porque parou:
 
 ## O que ficou de fora
 
-*a preencher no envio*
+Coisas que decidi não fazer, e porquê.
+
+**Gerar ângulos para os dez clusters.** O enunciado pede pelo menos um cluster com cinco ângulos. Está feito para *Não Sei Por Onde Começar*, o de maior peso, e o botão está lá para gerar os outros à frente de quem avaliar. Correr os dez de uma vez gastava quota do tier gratuito sem mostrar nada de novo.
+
+**Taxonomia fixa para as objeções.** Ficaram em texto livre normalizado. Deu 51 objeções distintas, algumas das quais são a mesma coisa dita de duas maneiras.
+
+**Testes automatizados.** Não há suite. Verifiquei ponta a ponta com pedidos reais à API e deixei os números no README, mas num projeto que continuasse a primeira coisa que escrevia era um teste ao verificador de citações literais.
+
+**Editar a taxonomia pelo painel.** Os clusters criam-se por script. Corrigir a que cluster uma resposta pertence faz-se no painel; criar ou renomear um cluster não.
+
+**Histórico de correções.** Guardo que uma classificação foi revista e quando, não o que lá estava antes.
 
 ## O que faria a seguir
 

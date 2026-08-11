@@ -1,22 +1,92 @@
-import { useRef, useState } from 'react'
-import type { FormEvent } from 'react'
-import { ArrowRight, TriangleAlert } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
+import { ArrowLeft, ArrowRight, CornerDownLeft, Send } from 'lucide-react'
 import { JA_INVESTIU, RENDIMENTOS, RespostaPublicaSchema } from '@mf/shared'
 import type { JaInvestiu, Origem } from '@mf/shared'
-import { Campo, CLASSE_ENTRADA, EscolhaUnica } from './campos'
+import { CLASSE_ENTRADA, EscolhaUnica } from './campos'
 import { enviarResposta } from './enviar'
+import { avisar } from './Avisos'
 
-type Valores = {
-  r1_dificuldade: string
-  r2_ja_tentou: string
-  r3_o_que_faria_comprar: string
-  idade: string
-  rendimento: string
-  ja_investiu: string
-  website: string
+type Chave =
+  | 'r1_dificuldade'
+  | 'r2_ja_tentou'
+  | 'r3_o_que_faria_comprar'
+  | 'idade'
+  | 'rendimento'
+  | 'ja_investiu'
+
+type Valores = Record<Chave, string> & { website: string }
+
+type Passo = {
+  chave: Chave
+  tipo: 'texto' | 'numero' | 'escolha'
+  rotulo: string
+  nota: string
+  ajuda?: string
+  exemplo?: string
+  vazio?: string
+  opcoes?: { valor: string; rotulo: string }[]
+  colunas?: number
 }
 
-type Erros = Partial<Record<keyof Valores, string>>
+const ROTULOS_JA_INVESTIU: Record<JaInvestiu, string> = {
+  sim: 'Sim',
+  'não': 'Não',
+  'não sei': 'Não tenho a certeza',
+}
+
+const PASSOS: Passo[] = [
+  {
+    chave: 'r1_dificuldade',
+    tipo: 'texto',
+    rotulo: 'Qual é a maior dificuldade que tens com dinheiro ou investimento neste momento?',
+    nota: 'Obrigatória',
+    ajuda: 'Escreve como falarias com um amigo. Quanto mais concreto, mais nos ajuda.',
+    exemplo: 'Por exemplo: não sobra nada ao fim do mês e não sei por onde começar.',
+    vazio: 'Falta a resposta a esta pergunta. É a única obrigatória do inquérito.',
+  },
+  {
+    chave: 'r2_ja_tentou',
+    tipo: 'texto',
+    rotulo: 'Já tentaste alguma coisa antes? O que foi e como correu?',
+    nota: 'Opcional',
+    ajuda: 'Vale tudo: uma app, ações, cripto, um PPR, um curso que não chegaste a acabar.',
+  },
+  {
+    chave: 'r3_o_que_faria_comprar',
+    tipo: 'texto',
+    rotulo: 'O que teria de acontecer para avançares?',
+    nota: 'Opcional',
+    ajuda: 'O que precisavas de saber, ver ou ter garantido antes de dares o passo.',
+  },
+  {
+    chave: 'idade',
+    tipo: 'numero',
+    rotulo: 'Que idade tens?',
+    nota: 'Sobre ti',
+    ajuda: 'Serve para cruzar as respostas por perfil, mais nada.',
+    vazio: 'Falta a idade para continuarmos.',
+  },
+  {
+    chave: 'rendimento',
+    tipo: 'escolha',
+    rotulo: 'Quanto entra em casa por mês?',
+    nota: 'Sobre ti',
+    ajuda: 'Valor líquido, por alto. Se preferires não dizer, também é uma resposta.',
+    vazio: 'Escolhe um dos intervalos. Há uma opção para não dizer.',
+    opcoes: RENDIMENTOS.map((valor) => ({ valor, rotulo: valor })),
+    colunas: 2,
+  },
+  {
+    chave: 'ja_investiu',
+    tipo: 'escolha',
+    rotulo: 'Já investiste alguma vez?',
+    nota: 'Sobre ti',
+    vazio: 'Escolhe uma das três opções para fecharmos.',
+    opcoes: JA_INVESTIU.map((valor) => ({ valor, rotulo: ROTULOS_JA_INVESTIU[valor] })),
+    colunas: 3,
+  },
+]
 
 const VALORES_INICIAIS: Valores = {
   r1_dificuldade: '',
@@ -28,45 +98,110 @@ const VALORES_INICIAIS: Valores = {
   website: '',
 }
 
-const ROTULOS_JA_INVESTIU: Record<JaInvestiu, string> = {
-  sim: 'Sim',
-  'não': 'Não',
-  'não sei': 'Não tenho a certeza',
+const TAMANHO_ROTULO = 'clamp(1.3rem, 0.9rem + 2.3vh, 2.5rem)'
+const TAMANHO_AJUDA = 'clamp(0.85rem, 0.76rem + 0.45vh, 1.05rem)'
+const ALTURA_TEXTO = 'clamp(96px, 24vh, 200px)'
+
+function validarCampo(passo: Passo, valor: string): string | undefined {
+  if (passo.tipo === 'escolha') {
+    return valor === '' ? passo.vazio : undefined
+  }
+
+  if (passo.tipo === 'numero') {
+    if (valor.trim() === '') return passo.vazio
+    const resultado = RespostaPublicaSchema.shape.idade.safeParse(valor)
+    return resultado.success ? undefined : resultado.error.issues[0]?.message
+  }
+
+  const forma = RespostaPublicaSchema.shape[passo.chave]
+  const resultado = forma.safeParse(valor)
+  if (resultado.success) return undefined
+  return valor.trim() === '' && passo.vazio ? passo.vazio : resultado.error.issues[0]?.message
 }
 
-const OPCOES_RENDIMENTO = RENDIMENTOS.map((valor) => ({ valor, rotulo: valor }))
-const OPCOES_JA_INVESTIU = JA_INVESTIU.map((valor) => ({
-  valor,
-  rotulo: ROTULOS_JA_INVESTIU[valor],
-}))
-
-export function Formulario({ origem, aoConcluir }: { origem: Origem; aoConcluir: () => void }) {
+export function Formulario({
+  origem,
+  iniciadoEm,
+  aoConcluir,
+  aoDesistir,
+}: {
+  origem: Origem
+  iniciadoEm: number
+  aoConcluir: () => void
+  aoDesistir: () => void
+}) {
   const [valores, setValores] = useState<Valores>(VALORES_INICIAIS)
-  const [erros, setErros] = useState<Erros>({})
-  const [erroEnvio, setErroEnvio] = useState('')
+  const [indice, setIndice] = useState(0)
+  const [animacao, setAnimacao] = useState('entra-frente')
   const [aEnviar, setAEnviar] = useState(false)
-  const montadoEm = useRef(Date.now())
 
-  function actualizar(campo: keyof Valores, valor: string) {
-    setValores((anteriores) => ({ ...anteriores, [campo]: valor }))
-    setErros((anteriores) => {
-      if (!anteriores[campo]) return anteriores
-      const seguintes = { ...anteriores }
-      delete seguintes[campo]
-      return seguintes
-    })
+  const caixa = useRef<HTMLDivElement>(null)
+  const emTransicao = useRef(false)
+  const agendado = useRef<number | undefined>(undefined)
+
+  const passo = PASSOS[indice]
+  const ultimo = indice === PASSOS.length - 1
+
+  useEffect(() => {
+    const alvo = caixa.current?.querySelector<HTMLElement>('textarea, input:not([type="radio"])')
+    if (alvo && window.matchMedia('(min-width: 640px)').matches) alvo.focus()
+  }, [indice])
+
+  useEffect(() => () => window.clearTimeout(agendado.current), [])
+
+  function actualizar(chave: Chave | 'website', valor: string) {
+    setValores((anteriores) => ({ ...anteriores, [chave]: valor }))
   }
 
-  function contornoDe(campo: keyof Valores) {
-    return erros[campo] ? 'border-erro' : 'border-contorno'
+  function transitar(destino: number, sentido: 'frente' | 'tras') {
+    emTransicao.current = true
+    setAnimacao(sentido === 'frente' ? 'sai-frente' : 'sai-tras')
+    agendado.current = window.setTimeout(() => {
+      setIndice(destino)
+      setAnimacao(sentido === 'frente' ? 'entra-frente' : 'entra-tras')
+      emTransicao.current = false
+    }, 230)
   }
 
-  async function submeter(evento: FormEvent<HTMLFormElement>) {
+  function avancar() {
+    if (emTransicao.current || aEnviar) return
+    const problema = validarCampo(passo, valores[passo.chave])
+    if (problema) {
+      avisar(problema)
+      return
+    }
+    if (ultimo) {
+      submeter()
+      return
+    }
+    transitar(indice + 1, 'frente')
+  }
+
+  function recuar() {
+    if (emTransicao.current || aEnviar) return
+    if (indice === 0) {
+      aoDesistir()
+      return
+    }
+    transitar(indice - 1, 'tras')
+  }
+
+  function escolher(valor: string) {
+    actualizar(passo.chave, valor)
+    if (ultimo) return
+    window.clearTimeout(agendado.current)
+    agendado.current = window.setTimeout(() => transitar(indice + 1, 'frente'), 300)
+  }
+
+  function aoTeclar(evento: KeyboardEvent<HTMLDivElement>) {
+    if (evento.key !== 'Enter') return
+    const alvo = evento.target as HTMLElement
+    if (alvo.tagName === 'TEXTAREA' && !(evento.ctrlKey || evento.metaKey)) return
     evento.preventDefault()
-    if (aEnviar) return
+    avancar()
+  }
 
-    setErroEnvio('')
-
+  async function submeter() {
     const resultado = RespostaPublicaSchema.safeParse({
       idade: valores.idade.trim() === '' ? undefined : valores.idade,
       rendimento: valores.rendimento === '' ? undefined : valores.rendimento,
@@ -75,47 +210,166 @@ export function Formulario({ origem, aoConcluir }: { origem: Origem; aoConcluir:
       r2_ja_tentou: valores.r2_ja_tentou,
       r3_o_que_faria_comprar: valores.r3_o_que_faria_comprar,
       website: valores.website,
-      tempo_preenchimento: Date.now() - montadoEm.current,
+      tempo_preenchimento: Date.now() - iniciadoEm,
     })
 
     if (!resultado.success) {
-      const encontrados: Erros = {}
-      for (const problema of resultado.error.issues) {
-        const chave = problema.path[0] as keyof Valores
-        if (chave && !encontrados[chave]) encontrados[chave] = problema.message
-      }
-      setErros(encontrados)
+      const problema = resultado.error.issues[0]
+      const chave = problema?.path[0] as string | undefined
 
-      if (encontrados.website) {
-        setErroEnvio('Não conseguimos aceitar esta submissão.')
+      if (chave === 'website' || chave === 'tempo_preenchimento') {
+        avisar('Não conseguimos aceitar esta submissão.')
         return
       }
 
-      const primeiro = (Object.keys(VALORES_INICIAIS) as (keyof Valores)[]).find(
-        (campo) => encontrados[campo],
-      )
-      if (primeiro) {
-        document
-          .getElementById(`campo-${primeiro}`)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const regresso = PASSOS.findIndex((p) => p.chave === chave)
+      if (regresso >= 0 && regresso !== indice) {
+        setIndice(regresso)
+        setAnimacao('entra-tras')
       }
+      avisar(problema?.message ?? 'Falta rever uma resposta.')
       return
     }
 
-    setErros({})
     setAEnviar(true)
-
     try {
       await enviarResposta({ ...resultado.data, origem })
       aoConcluir()
     } catch {
-      setErroEnvio('Não conseguimos enviar a tua resposta. Verifica a ligação e tenta outra vez.')
+      avisar('Não conseguimos enviar a tua resposta. Verifica a ligação e tenta outra vez.')
       setAEnviar(false)
     }
   }
 
+  const progresso = ((indice + (valores[passo.chave] ? 1 : 0)) / PASSOS.length) * 100
+
   return (
-    <form onSubmit={submeter} noValidate className="relative">
+    <section className="flex h-[100dvh] flex-col px-5 py-5 sm:px-8 sm:py-6">
+      <div className="fixed inset-x-0 top-0 z-20 h-0.5 bg-contorno">
+        <div
+          className="h-full bg-ouro transition-[width] duration-500 ease-out"
+          style={{ width: `${Math.max(progresso, 3)}%` }}
+        />
+      </div>
+
+      <header className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-4">
+        <img
+          src="/marca/logo-wordmark-light.svg"
+          alt="Master Funnels"
+          className="h-7 w-auto sm:h-8"
+        />
+        <span className="font-mono text-xs tracking-widest text-texto-subtil">
+          {String(indice + 1).padStart(2, '0')} / {String(PASSOS.length).padStart(2, '0')}
+        </span>
+      </header>
+
+      <div
+        ref={caixa}
+        onKeyDown={aoTeclar}
+        className="mx-auto flex w-full max-w-3xl flex-1 items-center overflow-y-auto py-6 sm:overflow-hidden sm:py-8"
+      >
+        <div key={indice} className={`w-full ${animacao}`}>
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.24em] text-ouro sm:text-xs">
+            {passo.nota}
+          </p>
+
+          <label
+            htmlFor={passo.chave}
+            className="mt-3 block font-serif leading-[1.15] text-texto sm:mt-4"
+            style={{ fontSize: TAMANHO_ROTULO }}
+          >
+            {passo.rotulo}
+          </label>
+
+          {passo.ajuda ? (
+            <p
+              className="mt-3 max-w-2xl leading-relaxed text-texto-fraco"
+              style={{ fontSize: TAMANHO_AJUDA }}
+            >
+              {passo.ajuda}
+            </p>
+          ) : null}
+
+          <div className="mt-5 sm:mt-6">
+            {passo.tipo === 'texto' ? (
+              <textarea
+                id={passo.chave}
+                name={passo.chave}
+                maxLength={2000}
+                value={valores[passo.chave]}
+                onChange={(evento) => actualizar(passo.chave, evento.target.value)}
+                placeholder={passo.exemplo}
+                style={{ height: ALTURA_TEXTO }}
+                className={`${CLASSE_ENTRADA} border-contorno resize-none text-base leading-relaxed sm:text-lg`}
+              />
+            ) : null}
+
+            {passo.tipo === 'numero' ? (
+              <input
+                id={passo.chave}
+                name={passo.chave}
+                type="number"
+                inputMode="numeric"
+                min={16}
+                max={100}
+                value={valores[passo.chave]}
+                onChange={(evento) => actualizar(passo.chave, evento.target.value)}
+                placeholder="34"
+                className={`${CLASSE_ENTRADA} border-contorno max-w-40 text-lg`}
+              />
+            ) : null}
+
+            {passo.tipo === 'escolha' ? (
+              <EscolhaUnica
+                nome={passo.chave}
+                opcoes={passo.opcoes ?? []}
+                valor={valores[passo.chave]}
+                aoEscolher={escolher}
+                colunas={passo.colunas}
+              />
+            ) : null}
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3 sm:mt-8 sm:gap-4">
+            <button
+              type="button"
+              onClick={avancar}
+              disabled={aEnviar}
+              className="group inline-flex items-center justify-center gap-2.5 rounded-lg bg-ouro px-6 py-3.5 text-base font-medium text-fundo outline-none transition-all hover:bg-ouro-claro focus-visible:ring-2 focus-visible:ring-ouro-claro focus-visible:ring-offset-2 focus-visible:ring-offset-fundo disabled:opacity-60"
+            >
+              {ultimo ? (aEnviar ? 'A enviar' : 'Enviar as respostas') : 'Continuar'}
+              {ultimo ? (
+                <Send className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <ArrowRight
+                  className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={recuar}
+              disabled={aEnviar}
+              className="inline-flex items-center gap-2 rounded-lg border border-contorno px-4 py-3.5 text-sm text-texto-fraco outline-none transition-colors hover:border-contorno-claro hover:text-texto focus-visible:border-ouro disabled:opacity-60"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Voltar
+            </button>
+
+            {passo.nota === 'Opcional' && !valores[passo.chave] ? (
+              <span className="text-sm text-texto-subtil">Podes saltar esta.</span>
+            ) : null}
+          </div>
+
+          <p className="mt-5 hidden items-center gap-2 font-mono text-xs text-texto-subtil sm:flex">
+            <CornerDownLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            {passo.tipo === 'texto' ? 'Ctrl + Enter para continuar' : 'Enter para continuar'}
+          </p>
+        </div>
+      </div>
+
       <div aria-hidden="true" className="absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden">
         <label htmlFor="website">Website</label>
         <input
@@ -128,160 +382,6 @@ export function Formulario({ origem, aoConcluir }: { origem: Origem; aoConcluir:
           onChange={(evento) => actualizar('website', evento.target.value)}
         />
       </div>
-
-      <section className="space-y-12 sm:space-y-16">
-        <Campo
-          nome="r1_dificuldade"
-          rotulo="Qual é a maior dificuldade que tens com dinheiro ou investimento neste momento?"
-          nota="Obrigatória"
-          ajuda="Escreve como falarias com um amigo. Quanto mais concreto, mais nos ajuda."
-          erro={erros.r1_dificuldade}
-        >
-          <textarea
-            id="r1_dificuldade"
-            name="r1_dificuldade"
-            rows={5}
-            maxLength={2000}
-            value={valores.r1_dificuldade}
-            onChange={(evento) => actualizar('r1_dificuldade', evento.target.value)}
-            aria-invalid={erros.r1_dificuldade ? true : undefined}
-            aria-describedby={erros.r1_dificuldade ? 'r1_dificuldade-erro' : undefined}
-            className={`${CLASSE_ENTRADA} ${contornoDe('r1_dificuldade')} resize-y leading-relaxed`}
-            placeholder="Por exemplo: não sobra nada ao fim do mês e não sei por onde começar."
-          />
-        </Campo>
-
-        <Campo
-          nome="r2_ja_tentou"
-          rotulo="Já tentaste alguma coisa antes? O que foi e como correu?"
-          nota="Opcional"
-          ajuda="Vale tudo: uma app, ações, cripto, um PPR, um curso que não chegaste a acabar."
-          erro={erros.r2_ja_tentou}
-        >
-          <textarea
-            id="r2_ja_tentou"
-            name="r2_ja_tentou"
-            rows={4}
-            maxLength={2000}
-            value={valores.r2_ja_tentou}
-            onChange={(evento) => actualizar('r2_ja_tentou', evento.target.value)}
-            aria-invalid={erros.r2_ja_tentou ? true : undefined}
-            aria-describedby={erros.r2_ja_tentou ? 'r2_ja_tentou-erro' : undefined}
-            className={`${CLASSE_ENTRADA} ${contornoDe('r2_ja_tentou')} resize-y leading-relaxed`}
-          />
-        </Campo>
-
-        <Campo
-          nome="r3_o_que_faria_comprar"
-          rotulo="O que teria de acontecer para avançares?"
-          nota="Opcional"
-          ajuda="O que precisavas de saber, ver ou ter garantido antes de dares o passo."
-          erro={erros.r3_o_que_faria_comprar}
-        >
-          <textarea
-            id="r3_o_que_faria_comprar"
-            name="r3_o_que_faria_comprar"
-            rows={4}
-            maxLength={2000}
-            value={valores.r3_o_que_faria_comprar}
-            onChange={(evento) => actualizar('r3_o_que_faria_comprar', evento.target.value)}
-            aria-invalid={erros.r3_o_que_faria_comprar ? true : undefined}
-            aria-describedby={
-              erros.r3_o_que_faria_comprar ? 'r3_o_que_faria_comprar-erro' : undefined
-            }
-            className={`${CLASSE_ENTRADA} ${contornoDe('r3_o_que_faria_comprar')} resize-y leading-relaxed`}
-          />
-        </Campo>
-      </section>
-
-      <div className="my-14 border-t border-contorno sm:my-20" />
-
-      <section className="space-y-12 sm:space-y-16">
-        <header className="space-y-3">
-          <p className="font-mono text-xs uppercase tracking-widest text-ouro">Sobre ti</p>
-          <p className="text-sm leading-relaxed text-texto-fraco">
-            Três campos. Servem para cruzar as respostas por perfil, mais nada.
-          </p>
-        </header>
-
-        <Campo nome="idade" rotulo="Que idade tens?" erro={erros.idade}>
-          <input
-            id="idade"
-            name="idade"
-            type="number"
-            inputMode="numeric"
-            min={16}
-            max={100}
-            value={valores.idade}
-            onChange={(evento) => actualizar('idade', evento.target.value)}
-            aria-invalid={erros.idade ? true : undefined}
-            aria-describedby={erros.idade ? 'idade-erro' : undefined}
-            className={`${CLASSE_ENTRADA} ${contornoDe('idade')} max-w-40`}
-            placeholder="34"
-          />
-        </Campo>
-
-        <Campo
-          nome="rendimento"
-          rotulo="Quanto entra em casa por mês?"
-          ajuda="Valor líquido, por alto. Se preferires não dizer, também é uma resposta."
-          erro={erros.rendimento}
-          grupo
-        >
-          <EscolhaUnica
-            nome="rendimento"
-            opcoes={OPCOES_RENDIMENTO}
-            valor={valores.rendimento}
-            aoEscolher={(valor) => actualizar('rendimento', valor)}
-            erro={erros.rendimento}
-          />
-        </Campo>
-
-        <Campo
-          nome="ja_investiu"
-          rotulo="Já investiste alguma vez?"
-          erro={erros.ja_investiu}
-          grupo
-        >
-          <EscolhaUnica
-            nome="ja_investiu"
-            opcoes={OPCOES_JA_INVESTIU}
-            valor={valores.ja_investiu}
-            aoEscolher={(valor) => actualizar('ja_investiu', valor)}
-            erro={erros.ja_investiu}
-            colunas={3}
-          />
-        </Campo>
-      </section>
-
-      {erroEnvio ? (
-        <div
-          role="alert"
-          className="mt-12 flex items-start gap-3 rounded-lg border border-erro bg-superficie px-4 py-3"
-        >
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-erro" aria-hidden="true" />
-          <p className="text-sm leading-relaxed text-erro">{erroEnvio}</p>
-        </div>
-      ) : null}
-
-      <div className="mt-12 space-y-4 sm:mt-16">
-        <button
-          type="submit"
-          disabled={aEnviar}
-          className="group flex w-full items-center justify-center gap-3 rounded-lg bg-ouro px-6 py-4 text-base font-medium text-fundo outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ouro-claro disabled:opacity-60 sm:w-auto"
-        >
-          {aEnviar ? 'A enviar' : 'Enviar as respostas'}
-          {aEnviar ? null : (
-            <ArrowRight
-              className="h-4 w-4 transition-transform group-hover:translate-x-1"
-              aria-hidden="true"
-            />
-          )}
-        </button>
-        <p className="text-sm text-texto-subtil">
-          Não pedimos nome, email nem telefone. Não há nada para comprar a seguir.
-        </p>
-      </div>
-    </form>
+    </section>
   )
 }

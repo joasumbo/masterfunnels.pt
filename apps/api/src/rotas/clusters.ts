@@ -102,7 +102,7 @@ export async function rotasClusters(servidor: FastifyInstance) {
     return resposta
       .header('Content-Type', 'text/csv; charset=utf-8')
       .header('Content-Disposition', 'attachment; filename="citacoes-' + slug + '.csv"')
-      .send(ficheiro.join('\r\n') + '\r\n')
+      .send('﻿sep=,\r\n' + ficheiro.join('\r\n') + '\r\n')
   })
 
   servidor.get('/clusters/:slug/angulos', async (pedido, resposta) => {
