@@ -13,3 +13,6 @@ scripts/test-*.mjs
 
 .claude/
 .verificacao/
+
+.vercel
+.env*

@@ -1,6 +1,8 @@
 const definida = import.meta.env.VITE_API_URL
 
 export const BASE_API =
-  definida && definida.length > 0
+  definida !== undefined && definida !== ''
     ? definida
-    : `${window.location.protocol}//${window.location.hostname}:3001`
+    : import.meta.env.DEV
+      ? `${window.location.protocol}//${window.location.hostname}:3001`
+      : ''

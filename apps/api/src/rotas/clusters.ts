@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { and, asc, desc, eq, gt, isNotNull } from 'drizzle-orm'
+import { and, asc, desc, eq, isNotNull } from 'drizzle-orm'
 import { normalizar } from '@mf/shared'
 import type { DetalheCluster } from '@mf/shared/api'
 import { autenticar } from '../auth.js'
@@ -13,27 +13,6 @@ import {
 } from './comum.js'
 
 const CABECALHO_CSV = 'resposta_id,citacao,nivel_consciencia,objecao_principal,confianca'
-const TENTATIVAS_EXECUCAO = 30
-const ESPERA_EXECUCAO_MS = 200
-
-function esperar(ms: number) {
-  return new Promise((resolver) => setTimeout(resolver, ms))
-}
-
-async function idDaExecucao(slug: string, anterior: number, promessa: Promise<number>) {
-  for (let tentativa = 0; tentativa < TENTATIVAS_EXECUCAO; tentativa += 1) {
-    const [linha] = await db
-      .select({ id: execucoesAgente.id })
-      .from(execucoesAgente)
-      .where(and(eq(execucoesAgente.clusterSlug, slug), gt(execucoesAgente.id, anterior)))
-      .orderBy(desc(execucoesAgente.id))
-      .limit(1)
-
-    if (linha) return linha.id
-    await esperar(ESPERA_EXECUCAO_MS)
-  }
-  return promessa
-}
 
 export async function rotasClusters(servidor: FastifyInstance) {
   servidor.addHook('preHandler', autenticar)
@@ -135,19 +114,13 @@ export async function rotasClusters(servidor: FastifyInstance) {
       return resposta.code(404).send({ erro: 'Cluster não encontrado' })
     }
 
-    const [ultima] = await db
-      .select({ id: execucoesAgente.id })
-      .from(execucoesAgente)
-      .orderBy(desc(execucoesAgente.id))
-      .limit(1)
-
     const { executarAgente } = await import('../agente/executar.js')
-    const promessa = executarAgente(slug)
-    promessa.catch((erro) => {
-      servidor.log.error({ erro: String(erro), cluster: slug }, 'Falhou a execucao do agente')
-    })
 
-    const execucaoId = await idDaExecucao(slug, ultima?.id ?? 0, promessa)
-    return { execucaoId }
+    try {
+      return { execucaoId: await executarAgente(slug) }
+    } catch (erro) {
+      servidor.log.error({ erro: String(erro), cluster: slug }, 'Falhou a execucao do agente')
+      return resposta.code(502).send({ erro: 'O agente não conseguiu concluir. Tenta outra vez.' })
+    }
   })
 }
