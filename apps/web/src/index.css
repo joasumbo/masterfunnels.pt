@@ -1,0 +1,41 @@
+@import 'tailwindcss';
+
+/* Tokens da marca Master Funnels, extraídos de masterfunnels.pt.
+   Declarados em @theme para o Tailwind gerar as utilidades correspondentes
+   (bg-fundo, text-ouro, font-serif, etc.). */
+@theme {
+  --color-ouro: #d4a843;
+  --color-ouro-claro: #e8c36a;
+  --color-ouro-escuro: #8b6914;
+  --color-quente: #c97d2e;
+
+  --color-fundo: #060608;
+  --color-elevado: #0a0a0e;
+  --color-superficie: #111116;
+
+  --color-contorno: #1a1a22;
+  --color-contorno-claro: #252530;
+
+  --color-texto: #f0f0f5;
+  --color-texto-fraco: #8888a0;
+  --color-texto-subtil: #55556a;
+
+  --color-sucesso: #22c55e;
+  --color-erro: #ef4444;
+
+  --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-fundo);
+  color: var(--color-texto);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
