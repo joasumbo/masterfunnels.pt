@@ -1,7 +1,10 @@
 import 'dotenv/config'
 
-const CHAVE = process.env.GEMINI_API_KEY
-if (!CHAVE) throw new Error('Falta GEMINI_API_KEY no ambiente')
+function chave() {
+  const valor = process.env.GEMINI_API_KEY
+  if (!valor) throw new Error('Falta GEMINI_API_KEY no ambiente')
+  return valor
+}
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
@@ -30,7 +33,7 @@ type RespostaGemini = {
 }
 
 async function chamar(modelo: string, corpo: unknown, tentativa = 0): Promise<RespostaGemini> {
-  const r = await fetch(`${BASE}/${modelo}:generateContent?key=${CHAVE}`, {
+  const r = await fetch(`${BASE}/${modelo}:generateContent?key=${chave()}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(corpo),
