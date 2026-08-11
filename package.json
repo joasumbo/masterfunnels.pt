@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace apps/web",
-    "build:api": "esbuild apps/api/src/vercel.ts --bundle --platform=node --format=esm --target=node22 --outfile=api/index.mjs --external:pg-native",
+    "build:api": "esbuild apps/api/src/vercel.ts --bundle --platform=node --format=esm --target=node22 --outfile=api/index.mjs --external:pg-native --banner:js=\"import{createRequire as ___cr}from \\\"node:module\\\";const require=___cr(import.meta.url);\"",
     "build": "npm run build:api && npm run build --workspace apps/web"
   },
   "devDependencies": {
