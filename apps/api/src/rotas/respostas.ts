@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify'
 import { desc, like } from 'drizzle-orm'
 import { ORIGENS, RespostaPublicaSchema } from '@mf/shared'
 import type { Origem } from '@mf/shared'
-import { db, respostas } from '../db/index.js'
+import { classificacoes, db, respostas } from '../db/index.js'
+import { classificarLote, taxonomiaActual } from '../lib/classificador.js'
 
 const LIMITE_POR_IP = 5
 const JANELA_MS = 60 * 60 * 1000
@@ -85,6 +86,33 @@ export async function rotasRespostas(servidor: FastifyInstance) {
       r3OQueFariaComprar: dados.r3_o_que_faria_comprar || null,
     })
 
-    return resposta.code(201).send({ ok: true, id })
+    let classificada = false
+
+    try {
+      const taxonomia = await taxonomiaActual()
+      const { linhas } = await classificarLote(
+        [
+          {
+            id,
+            r1: dados.r1_dificuldade,
+            r2: dados.r2_ja_tentou || null,
+            r3: dados.r3_o_que_faria_comprar || null,
+          },
+        ],
+        taxonomia,
+      )
+
+      if (linhas[0]) {
+        await db
+          .insert(classificacoes)
+          .values({ ...linhas[0], respostaId: id })
+          .onConflictDoNothing()
+        classificada = true
+      }
+    } catch (erro) {
+      servidor.log.error({ erro: String(erro), resposta: id }, 'Nao foi possivel classificar')
+    }
+
+    return resposta.code(201).send({ ok: true, id, classificada })
   })
 }
